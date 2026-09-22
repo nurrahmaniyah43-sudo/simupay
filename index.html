@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SimuPay - QRIS Shopping Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+        
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        
+        .gradient-btn {
+            background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
+        }
+        
+        .gradient-btn:active {
+            transform: scale(0.98);
+        }
+
+        #reader video {
+            object-fit: cover !important;
+            border-radius: 1rem;
+        }
+
+        /* Hide scrollbar for clean UI */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-2 sm:p-4">
+
+    <div class="w-full max-w-md bg-slate-900 min-h-[92vh] sm:min-h-[850px] rounded-3xl shadow-2xl overflow-hidden flex flex-col relative border border-slate-800">
+        
+        <!-- Header Top Bar -->
+        <header class="p-5 pb-3 flex items-center justify-between bg-slate-900/90 backdrop-blur sticky top-0 z-20 border-b border-slate-800/80">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-2xl bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold text-lg border border-blue-500/30">
+                    <i class="fa-solid me-0.5 fa-wallet text-blue-400"></i>
+                </div>
+                <div>
+                    <h1 class="font-extrabold text-base tracking-tight text-white leading-tight">SimuPay</h1>
+                    <p class="text-xs text-slate-400">Simulasi QRIS Belanja</p>
+                </div>
+            </div>
+            <button onclick="openSettingsModal()" class="w-9 h-9 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-300 transition">
+                <i class="fa-solid fa-arrows-rotate text-sm"></i>
+            </button>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 overflow-y-auto p-5 space-y-6 no-scrollbar pb-24">
+            
+            <div class="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-blue-600 via-indigo-600 to-slate-900 shadow-xl border border-blue-400/20">
+                <div class="absolute -right-6 -bottom-6 w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
+                
+                <div class="flex justify-between items-start mb-4">
+                    <span class="text-xs font-semibold px-3 py-1 rounded-full bg-white/15 text-white/90 backdrop-blur">
+                        Saldo Aktif
+                    </span>
+                    <i class="fa-solid fa-wifi text-white/50 text-sm"></i>
+                </div>
+                
+                <div class="space-y-1 mb-6">
+                    <p class="text-xs text-blue-200/80 uppercase font-medium tracking-wider">Sisa Saldo Siswa</p>
+                    <div class="flex items-baseline space-x-1">
+                        <span class="text-lg font-bold text-blue-200">Rp</span>
+                        <h2 id="balance-display" class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">100.000</h2>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between text-xs text-blue-100/80 pt-3 border-t border-white/10">
+                    <span id="user-id-text">ID: SIM-88923</span>
+                    <button onclick="resetBalance(100000)" class="hover:underline flex items-center gap-1 font-medium">
+                        <i class="fa-solid fa-arrows-rotate text-xs"></i> Reset Saldo (100rb)
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="openScanner()" class="gradient-btn p-4 rounded-2xl flex flex-col items-center justify-center space-y-2 shadow-lg shadow-blue-500/10 hover:shadow-blue-500/25 transition">
+                    <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center text-white">
+                        <i class="fa-solid fa-qrcode text-2xl"></i>
+                    </div>
+                    <span class="font-bold text-sm text-white">Scan Barcode</span>
+                </button>
+
+                <button onclick="openQrGeneratorModal()" class="glass-card hover:bg-slate-800/80 p-4 rounded-2xl flex flex-col items-center justify-center space-y-2 transition relative group">
+                    <span class="absolute top-2 right-2 text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/30 flex items-center gap-1">
+                        <i class="fa-solid fa-lock text-[8px]"></i> Admin
+                    </span>
+                    <div class="w-12 h-12 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+                        <i class="fa-solid fa-print text-xl"></i>
+                    </div>
+                    <span class="font-semibold text-sm text-slate-200">Bikin Barcode</span>
+                </button>
+            </div>
+
+            <div class="space-y-3 pt-2">
+                <div class="flex justify-between items-center">
+                    <h3 class="font-bold text-sm text-slate-300 flex items-center gap-2">
+                        <i class="fa-solid fa-clock-rotate-left text-blue-400"></i>
+                        Riwayat Transaksi
+                    </h3>
+                    <button onclick="clearHistory()" class="text-xs text-slate-500 hover:text-rose-400 transition">
+                        Hapus Semua
+                    </button>
+                </div>
+
+                <div id="history-list" class="space-y-2">
+                    <!-- History items populated via JS -->
+                </div>
+            </div>
+
+        </main>
+
+        <!-- Scanner Modal -->
+        <div id="scanner-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex flex-col justify-between p-4 sm:p-6 transition-all duration-300">
+            <div class="flex justify-between items-center text-white z-10">
+                <div class="flex items-center space-x-2">
+                    <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping"></span>
+                    <span class="font-bold text-sm">Kamera Pemindai</span>
+                </div>
+                <button onclick="closeScanner()" class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-300 hover:bg-slate-700">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="flex-1 flex flex-col items-center justify-center relative my-4">
+                <div class="w-full max-w-sm aspect-square rounded-3xl overflow-hidden border-2 border-blue-500/50 shadow-2xl relative bg-black">
+                    <div id="reader" class="w-full h-full"></div>
+                    <!-- Frame Overlay -->
+                    <div class="absolute inset-0 pointer-events-none border-[3px] border-dashed border-blue-400/40 m-8 rounded-2xl"></div>
+                </div>
+                <p class="text-xs text-slate-400 mt-4 text-center max-w-xs">
+                    Arahkan kamera ke Barcode / QR Code produk (berisi nominal angka seperti 2000, 2500, dll).
+                </p>
+            </div>
+
+            <div class="z-10 space-y-2">
+                <button onclick="openManualInput()" class="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold transition">
+                    Input Manual / Upload Gambar Barcode
+                </button>
+            </div>
+        </div>
+
+        <!-- Receipt Success Modal -->
+        <div id="receipt-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+            <div class="glass-card w-full max-w-xs rounded-3xl p-6 text-center space-y-5 border border-emerald-500/30 shadow-2xl relative overflow-hidden animate-bounce-in">
+                
+                <div class="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto text-2xl border border-emerald-500/40">
+                    <i class="fa-solid fa-check text-3xl"></i>
+                </div>
+
+                <div>
+                    <span class="text-xs font-semibold text-emerald-400 tracking-wider uppercase">Pembayaran Berhasil</span>
+                    <h3 id="receipt-amount" class="text-3xl font-extrabold text-white mt-1">-Rp 2.500</h3>
+                    <p id="receipt-item" class="text-xs text-slate-400 mt-1">Item Belanja</p>
+                </div>
+
+                <div class="bg-slate-800/60 rounded-2xl p-3 text-left text-xs space-y-2 border border-slate-700/50">
+                    <div class="flex justify-between text-slate-400">
+                        <span>Waktu</span>
+                        <span id="receipt-time" class="text-slate-200 font-medium">10:45 WIB</span>
+                    </div>
+                    <div class="flex justify-between text-slate-400">
+                        <span>Status</span>
+                        <span class="text-emerald-400 font-semibold">SUKSES</span>
+                    </div>
+                    <div class="flex justify-between text-slate-400 border-t border-slate-700/50 pt-2">
+                        <span>Sisa Saldo</span>
+                        <span id="receipt-remaining" class="text-white font-bold">Rp 97.500</span>
+                    </div>
+                </div>
+
+                <button onclick="closeReceiptModal()" class="w-full gradient-btn py-3 rounded-xl text-white font-bold text-sm shadow-lg shadow-blue-500/20">
+                    Selesai
+                </button>
+            </div>
+        </div>
+
+        <!-- QR Generator Modal -->
+        <div id="generator-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+            <div class="glass-card w-full max-w-sm rounded-3xl p-6 space-y-4 border border-slate-700 relative">
+                <div class="flex justify-between items-center">
+                    <h3 class="font-bold text-base text-white">Buat Barcode Belanja</h3>
+                    <button onclick="closeQrGeneratorModal()" class="text-slate-400 hover:text-white">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+
+                <p class="text-xs text-slate-400">
+                    Buat QR code dengan nominal angka terserah kamu untuk di-scan dengan HP lain atau dicetak!
+                </p>
+
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Nama Barang (Opsional)</label>
+                        <input type="text" id="gen-item-name" placeholder="Misal: Chiki Chiki" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Harga / Angka Barcode (Wajib)</label>
+                        <input type="number" id="gen-item-price" placeholder="Misal: 3500" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-blue-500">
+                    </div>
+                    <button onclick="generateCustomQr()" class="w-full gradient-btn py-2.5 rounded-xl text-xs font-bold text-white">
+                        Generate QR Code
+                    </button>
+                </div>
+
+                <div id="qr-output-container" class="hidden flex flex-col items-center justify-center p-4 bg-white rounded-2xl space-y-2 mt-3">
+                    <div id="qrcode-canvas"></div>
+                    <p id="qr-label-text" class="text-slate-900 font-bold text-xs text-center"></p>
+                    <button onclick="downloadQrImage()" class="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition">
+                        <i class="fa-solid fa-download"></i> Unduh / Simpan Gambar Barcode
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // State Variables
+        let currentBalance = 100000;
+        let history = [];
+        let html5QrCode = null;
+        let adminPin = "1234"; // Default PIN Admin
+
+        // Initialize Web Audio API for sound effects
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new AudioContext();
+            }
+        }
+
+        // Play Success Beep / Sound Effect
+        function playSuccessSound() {
+            initAudio();
+            if (!audioCtx) return;
+
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+            osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.1); // A5
+
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.3);
+        }
+
+        // Play Error Sound
+        function playErrorSound() {
+            initAudio();
+            if (!audioCtx) return;
+
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+            osc.frequency.setValueAtTime(160, audioCtx.currentTime + 0.15);
+
+            gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.35);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.35);
+        }
+
+        window.onload = function() {
+            loadSavedData();
+            updateUI();
+        };
+
+        function loadSavedData() {
+            const savedBalance = localStorage.getItem('simupay_balance');
+            const savedHistory = localStorage.getItem('simupay_history');
+            const savedPin = localStorage.getItem('simupay_admin_pin');
+
+            if (savedBalance !== null) {
+                currentBalance = parseInt(savedBalance, 10);
+            }
+            if (savedPin) {
+                adminPin = savedPin;
+            }
+            if (savedHistory) {
+                try {
+                    history = JSON.parse(savedHistory);
+                } catch(e) {
+                    history = [];
+                }
+            }
+        }
+
+        function saveData() {
+            localStorage.setItem('simupay_balance', currentBalance);
+            localStorage.setItem('simupay_history', JSON.stringify(history));
+            localStorage.setItem('simupay_admin_pin', adminPin);
+        }
+
+        function formatRupiah(amount) {
+            return new Intl.NumberFormat('id-ID').format(amount);
+        }
+
+        function updateUI() {
+            document.getElementById('balance-display').innerText = formatRupiah(currentBalance);
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const historyContainer = document.getElementById('history-list');
+            
+            if (history.length === 0) {
+                historyContainer.innerHTML = `
+                    <div class="glass-card p-4 rounded-2xl text-center text-slate-500 text-xs">
+                        Belum ada barang yang di-scan.
+                    </div>
+                `;
+                return;
+            }
+
+            historyContainer.innerHTML = history.map(item => `
+                <div class="glass-card p-3 rounded-2xl flex items-center justify-between group hover:border-slate-700 transition">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-9 h-9 rounded-xl ${item.type === 'expense' ? 'bg-rose-500/10 text-rose-400' : 'bg-emerald-500/10 text-emerald-400'} flex items-center justify-center text-sm">
+                            <i class="fa-solid ${item.type === 'expense' ? 'fa-cart-shopping' : 'fa-wallet'}"></i>
+                        </div>
+                        <div>
+                            <p class="text-xs font-semibold text-slate-200">${item.title}</p>
+                            <p class="text-[10px] text-slate-400">${item.time}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <span class="text-xs font-bold ${item.type === 'expense' ? 'text-rose-400' : 'text-emerald-400'}">
+                            ${item.type === 'expense' ? '-' : '+'}Rp ${formatRupiah(item.amount)}
+                        </span>
+                        <button onclick="deleteHistoryItem(${item.id})" class="text-slate-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-500/10 transition" title="Hapus & Refund Saldo">
+                            <i class="fa-solid fa-trash-can text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function deleteHistoryItem(id) {
+            const itemIndex = history.findIndex(i => i.id === id);
+            if (itemIndex === -1) return;
+
+            const item = history[itemIndex];
+            
+            // If it was an expense, refund the money back to user balance!
+            if (item.type === 'expense') {
+                currentBalance += item.amount;
+            } else if (item.type === 'income') {
+                currentBalance -= item.amount;
+            }
+
+            // Remove from array
+            history.splice(itemIndex, 1);
+
+            saveData();
+            updateUI();
+        }
+
+        function processPayment(scannedText, defaultTitle = 'Belanja Barcode') {
+            // Extract numeric value from barcode string
+            // Works for "2000", "RP 2500", "PRICE:5000", etc.
+            const cleanText = scannedText.replace(/[^0-9]/g, '');
+            const price = parseInt(cleanText, 10);
+
+            if (isNaN(price) || price <= 0) {
+                playErrorSound();
+                alert('Barcode tidak valid! Tidak ditemukan angka nominal harga.');
+                return;
+            }
+
+            let itemName = defaultTitle;
+            if (scannedText.includes(':')) {
+                const parts = scannedText.split(':');
+                if (parts[0].trim().length > 0) {
+                    itemName = parts[0].trim();
+                }
+            }
+
+            // Check Balance
+            if (currentBalance < price) {
+                playErrorSound();
+                alert(`Saldo Anda tidak cukup!\nHarga: Rp ${formatRupiah(price)}\nSaldo Anda: Rp ${formatRupiah(currentBalance)}`);
+                return;
+            }
+
+            // Deduct Balance
+            currentBalance -= price;
+
+            // Log History
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB';
+            
+            history.unshift({
+                id: Date.now(),
+                title: itemName,
+                amount: price,
+                time: timeStr,
+                type: 'expense'
+            });
+
+            saveData();
+            updateUI();
+
+            // Play Chime & Show Confetti + Receipt Modal
+            playSuccessSound();
+            showReceipt(itemName, price, timeStr, currentBalance);
+            
+            if (window.confetti) {
+                confetti({
+                    particleCount: 50,
+                    spread: 60,
+                    origin: { y: 0.7 }
+                });
+            }
+        }
+
+        function simulateScan(amount, name) {
+            processPayment(amount, name);
+        }
+
+        function resetBalance(newAmount = 100000) {
+            currentBalance = newAmount;
+            history.unshift({
+                id: Date.now(),
+                title: 'Top Up / Reset Saldo',
+                amount: newAmount,
+                time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB',
+                type: 'income'
+            });
+            saveData();
+            updateUI();
+            alert('Saldo berhasil diperbarui menjadi Rp ' + formatRupiah(newAmount));
+        }
+
+        function clearHistory() {
+            if (confirm('Hapus semua riwayat transaksi?')) {
+                history = [];
+                saveData();
+                updateUI();
+            }
+        }
+
+        function showReceipt(item, price, time, remaining) {
+            document.getElementById('receipt-amount').innerText = `-Rp ${formatRupiah(price)}`;
+            document.getElementById('receipt-item').innerText = item;
+            document.getElementById('receipt-time').innerText = time;
+            document.getElementById('receipt-remaining').innerText = `Rp ${formatRupiah(remaining)}`;
+            document.getElementById('receipt-modal').classList.remove('hidden');
+        }
+
+        function closeReceiptModal() {
+            document.getElementById('receipt-modal').classList.add('hidden');
+        }
+
+        function openScanner() {
+            document.getElementById('scanner-modal').classList.remove('hidden');
+
+            if (!html5QrCode) {
+                html5QrCode = new Html5Qrcode("reader");
+            }
+
+            const config = { fps: 10, qrbox: { width: 220, height: 220 } };
+
+            html5QrCode.start(
+                { facingMode: "environment" },
+                config,
+                (decodedText) => {
+                    // Success callback
+                    closeScanner();
+                    processPayment(decodedText);
+                },
+                (errorMessage) => {
+                    // ignore scan errors during searching
+                }
+            ).catch(err => {
+                console.error("Camera error:", err);
+                alert("Kamera tidak dapat diakses atau diblokir izinya. Kamu bisa mencoba fitur 'Input Manual'!");
+            });
+        }
+
+        function closeScanner() {
+            if (html5QrCode && html5QrCode.isScanning) {
+                html5QrCode.stop().then(() => {
+                    document.getElementById('scanner-modal').classList.add('hidden');
+                }).catch(err => {
+                    document.getElementById('scanner-modal').classList.add('hidden');
+                });
+            } else {
+                document.getElementById('scanner-modal').classList.add('hidden');
+            }
+        }
+
+        function openManualInput() {
+            const val = prompt("Masukkan angka nominal/isi barcode secara manual:", "2500");
+            if (val) {
+                closeScanner();
+                processPayment(val);
+            }
+        }
+
+        function openQrGeneratorModal() {
+            const inputPin = prompt("Khusus Guru / Admin!\nMasukkan PIN Admin untuk membuat Barcode:", "");
+            if (inputPin === null) return; // User cancelled
+            
+            if (inputPin === adminPin) {
+                document.getElementById('generator-modal').classList.remove('hidden');
+            } else {
+                playErrorSound();
+                alert('PIN Admin Salah! Hanya guru/admin yang dapat membuat barcode.');
+            }
+        }
+
+        function closeQrGeneratorModal() {
+            document.getElementById('generator-modal').classList.add('hidden');
+        }
+
+        function generateCustomQr() {
+            const name = document.getElementById('gen-item-name').value.trim();
+            const price = document.getElementById('gen-item-price').value.trim();
+
+            if (!price) {
+                alert('Silakan masukkan harga nominal!');
+                return;
+            }
+
+            const qrContainer = document.getElementById('qrcode-canvas');
+            qrContainer.innerHTML = '';
+
+            const qrContent = name ? `${name}:${price}` : price;
+
+            new QRCode(qrContainer, {
+                text: qrContent,
+                width: 160,
+                height: 160,
+                colorDark : "#0f172a",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H
+            });
+
+            document.getElementById('qr-label-text').innerText = `${name || 'Produk'} - Rp ${formatRupiah(price)}`;
+            document.getElementById('qr-output-container').classList.remove('hidden');
+        }
+
+        function downloadQrImage() {
+            const container = document.getElementById('qrcode-canvas');
+            const canvas = container.querySelector('canvas');
+            const img = container.querySelector('img');
+            
+            let dataUrl = '';
+            if (canvas) {
+                dataUrl = canvas.toDataURL('image/png');
+            } else if (img) {
+                dataUrl = img.src;
+            }
+
+            if (!dataUrl) {
+                alert('Gambar Barcode belum siap diunduh!');
+                return;
+            }
+
+            const name = document.getElementById('gen-item-name').value.trim() || 'produk';
+            const price = document.getElementById('gen-item-price').value.trim() || 'barcode';
+            const fileName = `Barcode_${name}_Rp${price}.png`.replace(/\s+/g, '_');
+
+            // Trigger file download
+            const a = document.createElement('a');
+            a.href = dataUrl;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        function openSettingsModal() {
+            const choice = prompt(
+                "PENGATURAN SIMUPAY:\n" +
+                "1. Ubah Saldo Utama (Saat ini: Rp " + formatRupiah(currentBalance) + ")\n" +
+                "2. Ubah PIN Admin Generator (Saat ini: " + adminPin + ")\n\n" +
+                "Ketik '1' atau '2':", 
+                "1"
+            );
+
+            if (choice === '1') {
+                const nominal = prompt("Ubah Saldo Utama ( default 100000 ):", currentBalance);
+                if (nominal !== null) {
+                    const parsed = parseInt(nominal, 10);
+                    if (!isNaN(parsed) && parsed >= 0) {
+                        resetBalance(parsed);
+                    } else {
+                        alert('Nominal saldo tidak valid.');
+                    }
+                }
+            } else if (choice === '2') {
+                const newPin = prompt("Masukkan PIN Admin Baru:", adminPin);
+                if (newPin && newPin.trim().length > 0) {
+                    adminPin = newPin.trim();
+                    saveData();
+                    alert("PIN Admin berhasil diubah menjadi: " + adminPin);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
